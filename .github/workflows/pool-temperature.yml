@@ -30,7 +30,8 @@ jobs:
         run: |
           .\update-pool-temperature.ps1 `
             -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -Password "${{ secrets.GOVEE_PASSWORD }}"
+            -Password "${{ secrets.GOVEE_PASSWORD }}" `
+            -Code "${{ secrets.GOVEE_CODE }}"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -43,4 +44,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
