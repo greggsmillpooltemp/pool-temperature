@@ -61,6 +61,11 @@
       line-height: 1.2;
       color: #5d7180;
     }
+
+    .meta.stale {
+      color: #9a5d15;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -80,7 +85,24 @@
         const data = await response.json();
         tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
         const date = data.lastReadingAt || data.updatedAt;
-        metaEl.textContent = date ? "Updated " + new Date(date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+        metaEl.classList.remove("stale");
+        if (date) {
+          const readingDate = new Date(date);
+          const ageMinutes = Math.max(0, Math.round((Date.now() - readingDate.getTime()) / 60000));
+          let ageLabel;
+          if (ageMinutes < 1) {
+            ageLabel = "just now";
+          } else if (ageMinutes < 60) {
+            ageLabel = ageMinutes + " min ago";
+          } else {
+            const ageHours = Math.round(ageMinutes / 60);
+            ageLabel = ageHours + (ageHours === 1 ? " hr ago" : " hrs ago");
+          }
+          metaEl.textContent = "Updated " + ageLabel;
+          if (ageMinutes > 90) metaEl.classList.add("stale");
+        } else {
+          metaEl.textContent = "";
+        }
       } catch (error) {
         tempEl.textContent = "--.-°F";
         metaEl.textContent = "Unavailable";
