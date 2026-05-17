@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pool Temperature</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+      background: transparent;
+      color: #152633;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    .widget {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 150px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 8px;
+      padding: 18px 16px;
+      border: 1px solid #d7e3eb;
+      background: #f7fbfd;
+      text-align: center;
+    }
+
+    .label {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .temp {
+      font-size: 56px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+      color: #0d6f8f;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: #5d7180;
+    }
+  </style>
+</head>
+<body>
+  <section class="widget" aria-live="polite">
+    <div class="label">Pool Temperature</div>
+    <div class="temp" id="temp">--.-°F</div>
+    <div class="meta" id="meta">Loading</div>
+  </section>
+  <script>
+    async function loadTemperature() {
+      const tempEl = document.getElementById("temp");
+      const metaEl = document.getElementById("meta");
+
+      try {
+        const response = await fetch("pool-temperature.json?ts=" + Date.now(), { cache: "no-store" });
+        if (!response.ok) throw new Error("Temperature file unavailable");
+        const data = await response.json();
+        tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
+        const date = data.lastReadingAt || data.updatedAt;
+        metaEl.textContent = date ? "Updated " + new Date(date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+      } catch (error) {
+        tempEl.textContent = "--.-°F";
+        metaEl.textContent = "Unavailable";
+      }
+    }
+
+    loadTemperature();
+    setInterval(loadTemperature, 60000);
+  </script>
+</body>
+</html>
