@@ -17,7 +17,7 @@ jobs:
   update-and-deploy:
     if: github.event_name != 'push'
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 330
     concurrency:
       group: pool-temperature-update
       cancel-in-progress: false
@@ -29,13 +29,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Update pool temperature
+      - name: Update pool temperature and keep Govee session
         shell: pwsh
         run: |
           .\update-pool-temperature.ps1 `
             -Email "${{ secrets.GOVEE_EMAIL }}" `
             -Password "${{ secrets.GOVEE_PASSWORD }}" `
-            -Code "${{ secrets.GOVEE_CODE }}"
+            -Code "${{ secrets.GOVEE_CODE }}" `
+            -ExportAuthEnvironment
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -48,6 +49,121 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Wait for hour 2
+        shell: pwsh
+        run: Start-Sleep -Seconds 3600
+
+      - name: Update pool temperature hour 2
+        shell: pwsh
+        run: |
+          .\update-pool-temperature.ps1 `
+            -Email "${{ secrets.GOVEE_EMAIL }}" `
+            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
+            -ClientId "$env:GOVEE_CLIENT_ID"
+
+      - name: Upload Pages artifact hour 2
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+          name: github-pages-${{ github.run_id }}-hour-2
+
+      - name: Deploy to GitHub Pages hour 2
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-hour-2
+
+      - name: Wait for hour 3
+        shell: pwsh
+        run: Start-Sleep -Seconds 3600
+
+      - name: Update pool temperature hour 3
+        shell: pwsh
+        run: |
+          .\update-pool-temperature.ps1 `
+            -Email "${{ secrets.GOVEE_EMAIL }}" `
+            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
+            -ClientId "$env:GOVEE_CLIENT_ID"
+
+      - name: Upload Pages artifact hour 3
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+          name: github-pages-${{ github.run_id }}-hour-3
+
+      - name: Deploy to GitHub Pages hour 3
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-hour-3
+
+      - name: Wait for hour 4
+        shell: pwsh
+        run: Start-Sleep -Seconds 3600
+
+      - name: Update pool temperature hour 4
+        shell: pwsh
+        run: |
+          .\update-pool-temperature.ps1 `
+            -Email "${{ secrets.GOVEE_EMAIL }}" `
+            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
+            -ClientId "$env:GOVEE_CLIENT_ID"
+
+      - name: Upload Pages artifact hour 4
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+          name: github-pages-${{ github.run_id }}-hour-4
+
+      - name: Deploy to GitHub Pages hour 4
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-hour-4
+
+      - name: Wait for hour 5
+        shell: pwsh
+        run: Start-Sleep -Seconds 3600
+
+      - name: Update pool temperature hour 5
+        shell: pwsh
+        run: |
+          .\update-pool-temperature.ps1 `
+            -Email "${{ secrets.GOVEE_EMAIL }}" `
+            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
+            -ClientId "$env:GOVEE_CLIENT_ID"
+
+      - name: Upload Pages artifact hour 5
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+          name: github-pages-${{ github.run_id }}-hour-5
+
+      - name: Deploy to GitHub Pages hour 5
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-hour-5
+
+      - name: Wait for hour 6
+        shell: pwsh
+        run: Start-Sleep -Seconds 3600
+
+      - name: Update pool temperature hour 6
+        shell: pwsh
+        run: |
+          .\update-pool-temperature.ps1 `
+            -Email "${{ secrets.GOVEE_EMAIL }}" `
+            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
+            -ClientId "$env:GOVEE_CLIENT_ID"
+
+      - name: Upload Pages artifact hour 6
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+          name: github-pages-${{ github.run_id }}-hour-6
+
+      - name: Deploy to GitHub Pages hour 6
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-hour-6
 
   deploy-pages:
     if: github.event_name == 'push'
