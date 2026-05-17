@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Update pool temperature
+        if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Update pool temperature data')
         shell: pwsh
         run: |
           .\update-pool-temperature.ps1 `
