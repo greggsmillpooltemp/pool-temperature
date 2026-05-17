@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pool Temp</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #152633;
+    }
+
+    .widget {
+      box-sizing: border-box;
+      width: 100%;
+      height: 118px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 10px 6px;
+      border: 1px solid #d7e3eb;
+      background: #f7fbfd;
+      text-align: center;
+    }
+
+    .label {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .temp {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: clip;
+      white-space: nowrap;
+      font-size: 42px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+      color: #0d6f8f;
+    }
+
+    .meta {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+      line-height: 1.2;
+      color: #5d7180;
+    }
+  </style>
+</head>
+<body>
+  <section class="widget" aria-live="polite">
+    <div class="label">Pool Temp</div>
+    <div class="temp" id="temp">--.-°F</div>
+    <div class="meta" id="meta">Loading</div>
+  </section>
+  <script>
+    async function loadTemperature() {
+      const tempEl = document.getElementById("temp");
+      const metaEl = document.getElementById("meta");
+
+      try {
+        const response = await fetch("pool-temperature.json?ts=" + Date.now(), { cache: "no-store" });
+        if (!response.ok) throw new Error("Temperature file unavailable");
+        const data = await response.json();
+        tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
+        const date = data.lastReadingAt || data.updatedAt;
+        metaEl.textContent = date ? "Updated " + new Date(date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+      } catch (error) {
+        tempEl.textContent = "--.-°F";
+        metaEl.textContent = "Unavailable";
+      }
+    }
+
+    loadTemperature();
+    setInterval(loadTemperature, 60000);
+  </script>
+</body>
+</html>
