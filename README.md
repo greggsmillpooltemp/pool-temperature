@@ -10,20 +10,11 @@ powershell -ExecutionPolicy Bypass -File .\update-pool-temperature.ps1 -Email "g
 
 The script writes `public/pool-temperature.json`, and `public/index.html` displays it.
 
-## Reliable 5-Minute Updates
+## GitHub Updates
 
-GitHub Actions scheduled runs can be delayed or skipped. For steady updates,
-run the updater from Windows Task Scheduler on an always-on computer:
-
-```powershell
-[Environment]::SetEnvironmentVariable("GOVEE_EMAIL", "your@email.com", "User")
-[Environment]::SetEnvironmentVariable("GOVEE_PASSWORD", "your-password", "User")
-powershell -ExecutionPolicy Bypass -File .\install-local-pool-temperature-task.ps1
-```
-
-The scheduled task runs `run-local-pool-temperature-update.ps1`, commits only
-`public/pool-temperature.json`, and pushes it to GitHub. The GitHub workflow
-then deploys that exact JSON to GitHub Pages.
+GitHub Actions keeps the public temperature file current. The scheduled workflow
+starts twice an hour. Each run creates staggered update jobs at 0, 5, 10, 15,
+20, and 25 minutes, and each job reads Govee and deploys GitHub Pages directly.
 
 ## GitHub Secrets
 
