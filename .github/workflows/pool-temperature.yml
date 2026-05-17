@@ -73,6 +73,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Update pool temperature
+        shell: pwsh
+        run: |
+          .\update-pool-temperature.ps1 `
+            -Email "${{ secrets.GOVEE_EMAIL }}" `
+            -Password "${{ secrets.GOVEE_PASSWORD }}" `
+            -Code "${{ secrets.GOVEE_CODE }}"
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
