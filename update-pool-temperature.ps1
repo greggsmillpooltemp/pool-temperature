@@ -63,6 +63,77 @@ function Get-GoveeDevicesFromResponse($Response) {
   return @()
 }
 
+function Get-GoveeReadingFromLastData($Device, $LastData, $Source) {
+  if (-not $LastData -or $null -eq $LastData.tem) {
+    return $null
+  }
+
+  $rawTem = [double]$LastData.tem
+  $tempC = $rawTem / 100.0
+  [PSCustomObject]@{
+    deviceName = $Device.deviceName
+    sku = $Device.sku
+    tempF = [Math]::Round(($tempC * 9 / 5) + 32, 1)
+    tempC = [Math]::Round($tempC, 1)
+    rawTem = $rawTem
+    online = $LastData.online
+    battery = $LastData.battery
+    source = $Source
+    lastReadingAt = if ($LastData.lastTime) {
+      [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$LastData.lastTime).ToLocalTime().ToString("o")
+    } else {
+      $null
+    }
+    updatedAt = [DateTimeOffset]::Now.ToString("o")
+  }
+}
+
+function Get-GoveeMultiDataReading($Device, $Headers) {
+  if (-not $Device.device -or -not $Device.sku) {
+    return $null
+  }
+
+  try {
+    $nowMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $escapedDevice = [System.Uri]::EscapeDataString($Device.device)
+    $uri = "https://app2.govee.com/th/rest/devices/v1/multi-datas?currentTime=$nowMs&device=$escapedDevice&sku=$($Device.sku)"
+    $response = Invoke-GoveeJson "Get" $uri $Headers
+    $json = $response | ConvertTo-Json -Depth 60 -Compress
+
+    $tempMatch = [regex]::Match($json, '"tem"\s*:\s*(-?\d+(\.\d+)?)')
+    if (-not $tempMatch.Success) {
+      return $null
+    }
+
+    $lastTime = $null
+    $timeMatch = [regex]::Match($json, '"lastTime"\s*:\s*(\d+)')
+    if ($timeMatch.Success) {
+      $lastTime = [int64]$timeMatch.Groups[1].Value
+    }
+
+    $online = $true
+    $onlineMatch = [regex]::Match($json, '"online"\s*:\s*(true|false)')
+    if ($onlineMatch.Success) {
+      $online = [bool]::Parse($onlineMatch.Groups[1].Value)
+    }
+
+    $lastData = [PSCustomObject]@{
+      tem = [double]$tempMatch.Groups[1].Value
+      online = $online
+      lastTime = $lastTime
+    }
+
+    $reading = Get-GoveeReadingFromLastData $Device $lastData "multi-datas"
+    if (-not $reading.lastReadingAt) {
+      $reading.lastReadingAt = $reading.updatedAt
+    }
+    return $reading
+  } catch {
+    Write-Warning "Could not read multi-datas for $($Device.deviceName): $($_.Exception.Message)"
+    return $null
+  }
+}
+
 if (-not $Email) {
   $Email = Read-Host "Govee account email"
 }
@@ -138,31 +209,21 @@ $readings = foreach ($response in $responses) {
     }
 
     $lastData = ConvertFrom-GoveeJsonString $device.deviceExt.lastDeviceData
-    if ($lastData -and $null -ne $lastData.tem) {
-      $rawTem = [double]$lastData.tem
-      $tempC = $rawTem / 100.0
-      [PSCustomObject]@{
-        deviceName = $device.deviceName
-        sku = $device.sku
-        tempF = [Math]::Round(($tempC * 9 / 5) + 32, 1)
-        tempC = [Math]::Round($tempC, 1)
-        rawTem = $rawTem
-        online = $lastData.online
-        battery = $lastData.battery
-        lastReadingAt = if ($lastData.lastTime) {
-          [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$lastData.lastTime).ToLocalTime().ToString("o")
-        } else {
-          $null
-        }
-        updatedAt = [DateTimeOffset]::Now.ToString("o")
-      }
+    $listReading = Get-GoveeReadingFromLastData $device $lastData "device-list"
+    if ($listReading) {
+      $listReading
+    }
+
+    $multiReading = Get-GoveeMultiDataReading $device $deviceHeaders
+    if ($multiReading) {
+      $multiReading
     }
   }
 }
 
 $reading = $readings |
-  Sort-Object deviceName, sku, tempF, rawTem, lastReadingAt -Unique |
-  Sort-Object @{ Expression = { if ($_.lastReadingAt) { 0 } else { 1 } } }, lastReadingAt -Descending |
+  Sort-Object deviceName, sku, source, tempF, rawTem, lastReadingAt -Unique |
+  Sort-Object @{ Expression = { if ($_.source -eq "multi-datas") { 0 } else { 1 } } }, @{ Expression = { if ($_.lastReadingAt) { 0 } else { 1 } } }, lastReadingAt -Descending |
   Select-Object -First 1
 
 if (-not $reading) {
