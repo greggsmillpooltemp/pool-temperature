@@ -2,9 +2,6 @@ name: Update Pool Temperature
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
   schedule:
     - cron: "0 */6 * * *"
 
@@ -164,37 +161,3 @@ jobs:
         uses: actions/deploy-pages@v4
         with:
           artifact_name: github-pages-${{ github.run_id }}-hour-6
-
-  deploy-pages:
-    if: github.event_name == 'push'
-    runs-on: windows-latest
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Update pool temperature
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -Password "${{ secrets.GOVEE_PASSWORD }}" `
-            -Code "${{ secrets.GOVEE_CODE }}"
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

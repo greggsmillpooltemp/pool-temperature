@@ -18,6 +18,10 @@ temperature refreshes during the run. This keeps the widget current for the
 community while avoiding repeated password logins that can trigger account
 safety restrictions.
 
+The workflow runs from the schedule or from manual dispatch only. Code pushes do
+not query Govee, which prevents ordinary repo updates from causing extra login
+attempts.
+
 ## GitHub Secrets
 
 Add these repository secrets before running the workflow:
