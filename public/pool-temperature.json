@@ -1,0 +1,11 @@
+﻿{
+    "deviceName":  "H5310_0027",
+    "sku":  "H5310",
+    "tempF":  77.5,
+    "tempC":  25.3,
+    "rawTem":  2530,
+    "online":  false,
+    "battery":  null,
+    "lastReadingAt":  "2026-05-17T07:30:00.0000000-04:00",
+    "updatedAt":  "2026-05-17T07:41:42.3870892-04:00"
+}

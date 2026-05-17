@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pool Temperature</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f8fb;
+      color: #13212b;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(520px, 100%);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .temp {
+      font-size: clamp(72px, 18vw, 132px);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+      color: #0d6f8f;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-size: 18px;
+      color: #3f5667;
+    }
+
+    .updated {
+      margin-top: 8px;
+      font-size: 15px;
+      color: #607585;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Pool Temperature</h1>
+    <div class="temp" id="temp">--.-°F</div>
+    <div class="status" id="status">Loading</div>
+    <div class="updated" id="updated"></div>
+  </main>
+  <script>
+    async function loadTemperature() {
+      const tempEl = document.getElementById("temp");
+      const statusEl = document.getElementById("status");
+      const updatedEl = document.getElementById("updated");
+
+      try {
+        const response = await fetch("pool-temperature.json?ts=" + Date.now(), { cache: "no-store" });
+        if (!response.ok) throw new Error("Temperature file unavailable");
+        const data = await response.json();
+        tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
+        statusEl.textContent = data.online === false ? "Last gateway reading" : "Live reading";
+        const date = data.lastReadingAt || data.updatedAt;
+        updatedEl.textContent = date ? "Updated " + new Date(date).toLocaleString() : "";
+      } catch (error) {
+        tempEl.textContent = "--.-°F";
+        statusEl.textContent = "Temperature unavailable";
+        updatedEl.textContent = "";
+      }
+    }
+
+    loadTemperature();
+    setInterval(loadTemperature, 60000);
+  </script>
+</body>
+</html>
