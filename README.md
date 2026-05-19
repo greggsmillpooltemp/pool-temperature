@@ -22,11 +22,16 @@ The workflow runs from the schedule or from manual dispatch only. Code pushes do
 not query Govee, which prevents ordinary repo updates from causing extra login
 attempts.
 
+After each hourly refresh batch finishes, the workflow uses
+`WORKFLOW_DISPATCH_TOKEN` to start the next batch. The schedule remains as a
+backup starter if GitHub misses or delays the handoff.
+
 ## GitHub Secrets
 
 Add these repository secrets before running the workflow:
 
 - `GOVEE_EMAIL`
 - `GOVEE_PASSWORD`
+- `WORKFLOW_DISPATCH_TOKEN`
 
 GitHub Pages should be configured to deploy from GitHub Actions.
