@@ -13,7 +13,7 @@ The script writes `public/pool-temperature.json`, and `public/index.html` displa
 ## GitHub Updates
 
 GitHub Actions keeps the public temperature file current. The scheduled workflow
-runs every six hours, logs into Govee once, and reuses that session for hourly
+runs every three hours, logs into Govee once, and reuses that session for hourly
 temperature refreshes during the run. This keeps the widget current for the
 community while avoiding repeated password logins that can trigger account
 safety restrictions.
