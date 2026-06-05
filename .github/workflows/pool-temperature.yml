@@ -3,7 +3,7 @@ name: Update Pool Temperature
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 */3 * * *"
+    - cron: "23 * * * *"
 
 concurrency:
   group: pool-temperature-update
@@ -18,7 +18,7 @@ jobs:
   update-and-deploy:
     if: github.event_name != 'push'
     runs-on: windows-latest
-    timeout-minutes: 170
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -27,70 +27,59 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Update pool temperature and keep Govee session
+      - name: Check whether live data needs refresh
+        id: freshness
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if ($env:EVENT_NAME -eq "workflow_dispatch") {
+            "should_update=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Manual run requested, refreshing now."
+            exit 0
+          }
+
+          try {
+            $cacheBust = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+            $live = Invoke-RestMethod -Uri "https://greggsmillpooltemp.github.io/pool-temperature/pool-temperature.json?cachebust=$cacheBust"
+            $updatedAt = [DateTimeOffset]::Parse([string]$live.updatedAt)
+            $ageMinutes = ([DateTimeOffset]::UtcNow - $updatedAt.ToUniversalTime()).TotalMinutes
+            Write-Host ("Live pool temperature data age: {0:n1} minutes." -f $ageMinutes)
+
+            if ($ageMinutes -lt 45) {
+              "should_update=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+              Write-Host "Live data is fresh enough; skipping this run."
+              exit 0
+            }
+          } catch {
+            Write-Warning "Could not check live data freshness: $($_.Exception.Message)"
+          }
+
+          "should_update=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Update pool temperature
+        if: steps.freshness.outputs.should_update == 'true'
         shell: pwsh
         run: |
           .\update-pool-temperature.ps1 `
             -Email "${{ secrets.GOVEE_EMAIL }}" `
             -Password "${{ secrets.GOVEE_PASSWORD }}" `
-            -Code "${{ secrets.GOVEE_CODE }}" `
-            -ExportAuthEnvironment
+            -Code "${{ secrets.GOVEE_CODE }}"
 
       - name: Configure Pages
+        if: steps.freshness.outputs.should_update == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: steps.freshness.outputs.should_update == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
       - name: Deploy to GitHub Pages
+        if: steps.freshness.outputs.should_update == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Wait for hour 2
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 2
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 2
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-2
-
-      - name: Deploy to GitHub Pages hour 2
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-2
-
-      - name: Wait for hour 3
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 3
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 3
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-3
-
-      - name: Deploy to GitHub Pages hour 3
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-3
 
