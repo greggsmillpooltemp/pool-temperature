@@ -3,7 +3,7 @@ name: Update Pool Temperature
 on:
   workflow_dispatch:
   schedule:
-    - cron: "23 * * * *"
+    - cron: "7,22,37,52 * * * *"
 
 concurrency:
   group: pool-temperature-update
