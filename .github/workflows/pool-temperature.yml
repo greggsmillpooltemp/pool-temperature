@@ -12,7 +12,7 @@ on:
           - "false"
           - "true"
   schedule:
-    - cron: "17,47 */6 * * *"
+    - cron: "17,47 * * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -26,7 +26,7 @@ jobs:
   update-and-deploy:
     if: github.event_name != 'push'
     runs-on: windows-latest
-    timeout-minutes: 350
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -75,8 +75,7 @@ jobs:
           .\update-pool-temperature.ps1 `
             -Email "${{ secrets.GOVEE_EMAIL }}" `
             -Password "${{ secrets.GOVEE_PASSWORD }}" `
-            -Code "${{ secrets.GOVEE_CODE }}" `
-            -ExportAuthEnvironment
+            -Code "${{ secrets.GOVEE_CODE }}"
 
       - name: Configure Pages
         if: steps.freshness.outputs.should_update == 'true'
@@ -92,112 +91,3 @@ jobs:
         if: steps.freshness.outputs.should_update == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Wait for hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-2
-
-      - name: Deploy to GitHub Pages hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-2
-
-      - name: Wait for hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-3
-
-      - name: Deploy to GitHub Pages hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-3
-
-      - name: Wait for hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-4
-
-      - name: Deploy to GitHub Pages hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-4
-
-      - name: Wait for hour 5
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 5
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 5
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-5
-
-      - name: Deploy to GitHub Pages hour 5
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-5
-
