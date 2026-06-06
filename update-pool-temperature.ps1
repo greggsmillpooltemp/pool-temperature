@@ -31,7 +31,20 @@ function Invoke-GoveeJson($Method, $Uri, $Headers, $Body = $null) {
   } elseif ($Method -eq "Post") {
     $params.ContentType = "application/json"
   }
-  return Invoke-RestMethod @params
+  try {
+    return Invoke-RestMethod @params
+  } catch {
+    $statusCode = $null
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    }
+
+    if ($statusCode -eq 403) {
+      throw "Govee returned 403 Forbidden. This usually means the account or endpoint is temporarily rate-limited/blocked. Wait for the Govee cooldown before retrying; repeated manual re-runs can extend the block."
+    }
+
+    throw
+  }
 }
 
 function ConvertFrom-GoveeJsonString($Value) {

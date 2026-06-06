@@ -2,6 +2,15 @@ name: Update Pool Temperature
 
 on:
   workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: "Force a Govee refresh even if the published data is fresh"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   schedule:
     - cron: "17,47 */6 * * *"
 
@@ -31,12 +40,13 @@ jobs:
         shell: pwsh
         env:
           EVENT_NAME: ${{ github.event_name }}
+          FORCE_REFRESH: ${{ inputs.force_refresh || 'false' }}
         run: |
           $ErrorActionPreference = "Stop"
 
-          if ($env:EVENT_NAME -eq "workflow_dispatch") {
+          if ($env:EVENT_NAME -eq "workflow_dispatch" -and $env:FORCE_REFRESH -eq "true") {
             "should_update=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            Write-Host "Manual run requested, refreshing now."
+            Write-Host "Manual forced refresh requested, refreshing now."
             exit 0
           }
 
