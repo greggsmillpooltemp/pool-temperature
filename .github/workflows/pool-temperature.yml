@@ -3,11 +3,14 @@ name: Update Pool Temperature
 on:
   workflow_dispatch:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "*/5 * * * *"
 
 concurrency:
   group: pool-temperature-update
   cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
@@ -48,7 +51,7 @@ jobs:
             $ageMinutes = ([DateTimeOffset]::UtcNow - $updatedAt.ToUniversalTime()).TotalMinutes
             Write-Host ("Live pool temperature data age: {0:n1} minutes." -f $ageMinutes)
 
-            if ($ageMinutes -lt 45) {
+            if ($ageMinutes -lt 55) {
               "should_update=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
               Write-Host "Live data is fresh enough; skipping this run."
               exit 0
