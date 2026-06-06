@@ -12,7 +12,7 @@ on:
           - "false"
           - "true"
   schedule:
-    - cron: "17,47 * * * *"
+    - cron: "17,47 */2 * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -21,6 +21,10 @@ permissions:
   contents: read
   pages: write
   id-token: write
+
+concurrency:
+  group: pool-temperature
+  cancel-in-progress: true
 
 jobs:
   update-and-deploy:
@@ -35,45 +39,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore Govee auth cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .govee-auth
-          key: govee-auth-${{ github.run_id }}
-          restore-keys: |
-            govee-auth-
-
-      - name: Check Govee cooldown
-        id: govee_cooldown
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Path ".govee-auth" -Force | Out-Null
-          $cachePath = ".govee-auth\auth.json"
-          if (-not (Test-Path -LiteralPath $cachePath)) {
-            "can_refresh=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            exit 0
-          }
-
-          try {
-            $cache = Get-Content -LiteralPath $cachePath -Raw | ConvertFrom-Json
-            if ($cache.blockedUntil) {
-              $blockedUntil = [DateTimeOffset]::Parse([string]$cache.blockedUntil)
-              if ($blockedUntil -gt [DateTimeOffset]::UtcNow) {
-                Write-Host "Govee refresh is cooling down until $($blockedUntil.ToString("u"))."
-                "can_refresh=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-                exit 0
-              }
-            }
-          } catch {
-            Write-Warning "Could not inspect Govee auth cache: $($_.Exception.Message)"
-          }
-
-          "can_refresh=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
       - name: Check whether live data needs refresh
         id: freshness
-        if: steps.govee_cooldown.outputs.can_refresh == 'true'
         shell: pwsh
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -94,7 +61,7 @@ jobs:
             $ageMinutes = ([DateTimeOffset]::UtcNow - $updatedAt.ToUniversalTime()).TotalMinutes
             Write-Host ("Live pool temperature data age: {0:n1} minutes." -f $ageMinutes)
 
-            if ($ageMinutes -lt 55) {
+            if ($ageMinutes -lt 110) {
               "should_update=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
               Write-Host "Live data is fresh enough; skipping this run."
               exit 0
@@ -106,21 +73,13 @@ jobs:
           "should_update=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Update pool temperature
-        if: steps.govee_cooldown.outputs.can_refresh == 'true' && steps.freshness.outputs.should_update == 'true'
+        if: steps.freshness.outputs.should_update == 'true'
         shell: pwsh
         run: |
           .\update-pool-temperature.ps1 `
             -Email "${{ secrets.GOVEE_EMAIL }}" `
             -Password "${{ secrets.GOVEE_PASSWORD }}" `
-            -Code "${{ secrets.GOVEE_CODE }}" `
-            -AuthCachePath ".govee-auth\auth.json"
-
-      - name: Save Govee auth cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .govee-auth
-          key: govee-auth-${{ github.run_id }}
+            -Code "${{ secrets.GOVEE_CODE }}"
 
       - name: Configure Pages
         if: steps.freshness.outputs.should_update == 'true'

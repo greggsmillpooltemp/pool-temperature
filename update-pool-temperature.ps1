@@ -5,7 +5,6 @@ param(
   [string]$AuthToken,
   [string]$ClientId,
   [switch]$ExportAuthEnvironment,
-  [string]$AuthCachePath,
   [string]$OutputPath = ".\public\pool-temperature.json"
 )
 
@@ -16,42 +15,6 @@ function New-ClientId([string]$email) {
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $hash = $sha.ComputeHash($bytes)
   return "cdx" + ([BitConverter]::ToString($hash).Replace("-", "").ToLowerInvariant().Substring(0, 29))
-}
-
-function Save-GoveeAuthCache([string]$Path, [string]$Email, [string]$ClientId, [string]$AuthToken, [string]$BlockedUntil = $null) {
-  if (-not $Path) {
-    return
-  }
-
-  $parent = Split-Path -Parent $Path
-  if ($parent -and -not (Test-Path -LiteralPath $parent)) {
-    New-Item -ItemType Directory -Path $parent -Force | Out-Null
-  }
-
-  [PSCustomObject]@{
-    email = $Email
-    clientId = $ClientId
-    authToken = $AuthToken
-    blockedUntil = $BlockedUntil
-    savedAt = [DateTimeOffset]::UtcNow.ToString("o")
-  } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Path -Encoding UTF8
-}
-
-function Read-GoveeAuthCache([string]$Path, [string]$Email) {
-  if (-not $Path -or -not (Test-Path -LiteralPath $Path)) {
-    return $null
-  }
-
-  try {
-    $cache = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
-    if ($cache.email -and $Email -and $cache.email -ne $Email) {
-      return $null
-    }
-    return $cache
-  } catch {
-    Write-Warning "Could not read Govee auth cache: $($_.Exception.Message)"
-    return $null
-  }
 }
 
 function Invoke-GoveeJson($Method, $Uri, $Headers, $Body = $null) {
@@ -77,8 +40,6 @@ function Invoke-GoveeJson($Method, $Uri, $Headers, $Body = $null) {
     }
 
     if ($statusCode -eq 403) {
-      $blockedUntil = [DateTimeOffset]::UtcNow.AddHours(4).ToString("o")
-      Save-GoveeAuthCache $AuthCachePath $Email $ClientId $AuthToken $blockedUntil
       throw "Govee returned 403 Forbidden. This usually means the account or endpoint is temporarily rate-limited/blocked. Wait for the Govee cooldown before retrying; repeated manual re-runs can extend the block."
     }
 
@@ -223,24 +184,6 @@ $baseHeaders = @{
   "Accept-Language" = "en"
 }
 
-$authCache = Read-GoveeAuthCache $AuthCachePath $Email
-if ($authCache -and $authCache.blockedUntil) {
-  $blockedUntil = [DateTimeOffset]::Parse([string]$authCache.blockedUntil)
-  if ($blockedUntil -gt [DateTimeOffset]::UtcNow) {
-    throw "Govee refresh is in cooldown until $($blockedUntil.ToString("u")) after a recent 403 response."
-  }
-}
-
-if (-not $AuthToken -and $authCache -and $authCache.authToken) {
-  $AuthToken = [string]$authCache.authToken
-  if ($authCache.clientId) {
-    $ClientId = [string]$authCache.clientId
-  }
-  Write-Host "Using cached Govee auth token."
-  Write-Host "::add-mask::$AuthToken"
-  Write-Host "::add-mask::$ClientId"
-}
-
 if (-not $AuthToken) {
   $loginBody = @{
     email = $Email
@@ -268,8 +211,6 @@ if (-not $AuthToken) {
   if ($login.client.client) {
     $ClientId = $login.client.client
   }
-
-  Save-GoveeAuthCache $AuthCachePath $Email $ClientId $AuthToken
 
   if ($ExportAuthEnvironment -and $env:GITHUB_ENV) {
     "GOVEE_AUTH_TOKEN=$AuthToken" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
