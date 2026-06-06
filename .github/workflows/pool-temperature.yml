@@ -12,7 +12,7 @@ on:
           - "false"
           - "true"
   schedule:
-    - cron: "17,47 */4 * * *"
+    - cron: "17,47 * * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -26,7 +26,7 @@ jobs:
   update-and-deploy:
     if: github.event_name != 'push'
     runs-on: windows-latest
-    timeout-minutes: 235
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -35,8 +35,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Restore Govee auth cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .govee-auth
+          key: govee-auth-${{ github.run_id }}
+          restore-keys: |
+            govee-auth-
+
+      - name: Check Govee cooldown
+        id: govee_cooldown
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path ".govee-auth" -Force | Out-Null
+          $cachePath = ".govee-auth\auth.json"
+          if (-not (Test-Path -LiteralPath $cachePath)) {
+            "can_refresh=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            exit 0
+          }
+
+          try {
+            $cache = Get-Content -LiteralPath $cachePath -Raw | ConvertFrom-Json
+            if ($cache.blockedUntil) {
+              $blockedUntil = [DateTimeOffset]::Parse([string]$cache.blockedUntil)
+              if ($blockedUntil -gt [DateTimeOffset]::UtcNow) {
+                Write-Host "Govee refresh is cooling down until $($blockedUntil.ToString("u"))."
+                "can_refresh=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+                exit 0
+              }
+            }
+          } catch {
+            Write-Warning "Could not inspect Govee auth cache: $($_.Exception.Message)"
+          }
+
+          "can_refresh=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Check whether live data needs refresh
         id: freshness
+        if: steps.govee_cooldown.outputs.can_refresh == 'true'
         shell: pwsh
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -69,14 +106,21 @@ jobs:
           "should_update=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Update pool temperature
-        if: steps.freshness.outputs.should_update == 'true'
+        if: steps.govee_cooldown.outputs.can_refresh == 'true' && steps.freshness.outputs.should_update == 'true'
         shell: pwsh
         run: |
           .\update-pool-temperature.ps1 `
             -Email "${{ secrets.GOVEE_EMAIL }}" `
             -Password "${{ secrets.GOVEE_PASSWORD }}" `
             -Code "${{ secrets.GOVEE_CODE }}" `
-            -ExportAuthEnvironment
+            -AuthCachePath ".govee-auth\auth.json"
+
+      - name: Save Govee auth cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .govee-auth
+          key: govee-auth-${{ github.run_id }}
 
       - name: Configure Pages
         if: steps.freshness.outputs.should_update == 'true'
@@ -92,84 +136,3 @@ jobs:
         if: steps.freshness.outputs.should_update == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Wait for hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-2
-
-      - name: Deploy to GitHub Pages hour 2
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-2
-
-      - name: Wait for hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-3
-
-      - name: Deploy to GitHub Pages hour 3
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-3
-
-      - name: Wait for hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: Start-Sleep -Seconds 3600
-
-      - name: Update pool temperature hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        shell: pwsh
-        run: |
-          .\update-pool-temperature.ps1 `
-            -Email "${{ secrets.GOVEE_EMAIL }}" `
-            -AuthToken "$env:GOVEE_AUTH_TOKEN" `
-            -ClientId "$env:GOVEE_CLIENT_ID"
-
-      - name: Upload Pages artifact hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-          name: github-pages-${{ github.run_id }}-hour-4
-
-      - name: Deploy to GitHub Pages hour 4
-        if: steps.freshness.outputs.should_update == 'true'
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-hour-4

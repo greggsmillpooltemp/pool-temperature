@@ -13,18 +13,20 @@ The script writes `public/pool-temperature.json`, and `public/index.html` displa
 ## GitHub Updates
 
 GitHub Actions keeps the public temperature file current. The scheduled workflow
-runs every three hours, logs into Govee once, and reuses that session for hourly
-temperature refreshes during the run. This keeps the widget current for the
-community while avoiding repeated password logins that can trigger account
-safety restrictions.
+runs hourly, with a backup run 30 minutes later in case GitHub skips or delays
+the first schedule. Each run checks the published JSON before contacting Govee,
+so the backup run exits without another Govee request when the data is already
+fresh.
+
+The updater stores the Govee session token in the GitHub Actions cache after a
+successful login. Future runs try that cached token before falling back to the
+password login, which reduces repeated account logins. If Govee returns a 403
+rate-limit/account block, the updater records a short cooldown marker in the
+cache so later scheduled runs pause instead of making the lockout worse.
 
 The workflow runs from the schedule or from manual dispatch only. Code pushes do
 not query Govee, which prevents ordinary repo updates from causing extra login
 attempts.
-
-After each hourly refresh batch finishes, the workflow uses
-`WORKFLOW_DISPATCH_TOKEN` to start the next batch. The schedule remains as a
-backup starter if GitHub misses or delays the handoff.
 
 ## GitHub Secrets
 
