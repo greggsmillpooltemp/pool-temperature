@@ -13,10 +13,9 @@ The script writes `public/pool-temperature.json`, and `public/index.html` displa
 ## GitHub Updates
 
 GitHub Actions keeps the public temperature file current. The scheduled workflow
-runs every 2 hours, with a backup run 30 minutes later in case GitHub skips or
-delays the first schedule. Each run checks the published JSON before contacting
-Govee, so the backup run exits without another Govee request when the data is
-already fresh.
+wakes up every 30 minutes so GitHub has multiple chances to run it, but it only
+contacts Govee when the published JSON is about 2 hours old. Most scheduled
+runs finish quickly after checking the public JSON and do not log into Govee.
 
 The workflow runs from the schedule or from manual dispatch only. Code pushes do
 not query Govee, which prevents ordinary repo updates from causing extra login
