@@ -11,8 +11,16 @@ on:
         options:
           - "false"
           - "true"
+      keep_alive:
+        description: "Start the next updater run after this one finishes"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
   schedule:
-    - cron: "13,43 * * * *"
+    - cron: "13 */6 * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -21,16 +29,17 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: pool-temperature
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-and-deploy:
     if: github.event_name != 'push'
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -95,3 +104,42 @@ jobs:
         if: steps.freshness.outputs.should_update == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Start next updater run
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && (github.event_name == 'schedule' || inputs.keep_alive == 'true') }}
+        shell: pwsh
+        env:
+          WORKFLOW_DISPATCH_TOKEN: ${{ secrets.WORKFLOW_DISPATCH_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_FILE: pool-temperature.yml
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if (-not $env:WORKFLOW_DISPATCH_TOKEN) {
+            throw "WORKFLOW_DISPATCH_TOKEN is missing. Add a repository secret with permission to dispatch this workflow."
+          }
+
+          Write-Host "Waiting 30 minutes before starting the next updater run."
+          Start-Sleep -Seconds 1800
+
+          $headers = @{
+            Authorization = "Bearer $env:WORKFLOW_DISPATCH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $body = @{
+            ref = "main"
+            inputs = @{
+              force_refresh = "false"
+              keep_alive = "true"
+            }
+          } | ConvertTo-Json -Depth 5
+
+          Invoke-RestMethod `
+            -Method Post `
+            -Uri "https://api.github.com/repos/$env:REPOSITORY/actions/workflows/$env:WORKFLOW_FILE/dispatches" `
+            -Headers $headers `
+            -Body $body `
+            -ContentType "application/json"
+
+          Write-Host "Next updater run dispatched."
