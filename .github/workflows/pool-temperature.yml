@@ -109,21 +109,21 @@ jobs:
         if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && (github.event_name == 'schedule' || inputs.keep_alive == 'true') }}
         shell: pwsh
         env:
-          WORKFLOW_DISPATCH_TOKEN: ${{ secrets.WORKFLOW_DISPATCH_TOKEN }}
+          DISPATCH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           WORKFLOW_FILE: pool-temperature.yml
         run: |
           $ErrorActionPreference = "Stop"
 
-          if (-not $env:WORKFLOW_DISPATCH_TOKEN) {
-            throw "WORKFLOW_DISPATCH_TOKEN is missing. Add a repository secret with permission to dispatch this workflow."
+          if (-not $env:DISPATCH_TOKEN) {
+            throw "GitHub did not provide a dispatch token for this run."
           }
 
           Write-Host "Waiting 30 minutes before starting the next updater run."
           Start-Sleep -Seconds 1800
 
           $headers = @{
-            Authorization = "Bearer $env:WORKFLOW_DISPATCH_TOKEN"
+            Authorization = "Bearer $env:DISPATCH_TOKEN"
             Accept = "application/vnd.github+json"
             "X-GitHub-Api-Version" = "2022-11-28"
           }
@@ -135,11 +135,23 @@ jobs:
             }
           } | ConvertTo-Json -Depth 5
 
-          Invoke-RestMethod `
-            -Method Post `
-            -Uri "https://api.github.com/repos/$env:REPOSITORY/actions/workflows/$env:WORKFLOW_FILE/dispatches" `
-            -Headers $headers `
-            -Body $body `
-            -ContentType "application/json"
+          $dispatchUri = "https://api.github.com/repos/$env:REPOSITORY/actions/workflows/$env:WORKFLOW_FILE/dispatches"
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+              Invoke-RestMethod `
+                -Method Post `
+                -Uri $dispatchUri `
+                -Headers $headers `
+                -Body $body `
+                -ContentType "application/json"
 
-          Write-Host "Next updater run dispatched."
+              Write-Host "Next updater run dispatched."
+              exit 0
+            } catch {
+              Write-Warning "Could not dispatch next updater run on attempt $attempt`: $($_.Exception.Message)"
+              if ($attempt -eq 3) {
+                throw
+              }
+              Start-Sleep -Seconds (30 * $attempt)
+            }
+          }
