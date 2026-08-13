@@ -12,15 +12,15 @@ on:
           - "false"
           - "true"
       keep_alive:
-        description: "Start the next updater run after this one finishes"
+        description: "Deprecated; scheduled runs now keep the updater alive"
         required: false
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "true"
           - "false"
   schedule:
-    - cron: "13 */6 * * *"
+    - cron: "*/30 * * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -29,11 +29,10 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  actions: write
 
 concurrency:
   group: pool-temperature
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   update-and-deploy:
@@ -104,54 +103,3 @@ jobs:
         if: steps.freshness.outputs.should_update == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Start next updater run
-        if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && (github.event_name == 'schedule' || inputs.keep_alive == 'true') }}
-        shell: pwsh
-        env:
-          DISPATCH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          WORKFLOW_FILE: pool-temperature.yml
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          if (-not $env:DISPATCH_TOKEN) {
-            throw "GitHub did not provide a dispatch token for this run."
-          }
-
-          Write-Host "Waiting 30 minutes before starting the next updater run."
-          Start-Sleep -Seconds 1800
-
-          $headers = @{
-            Authorization = "Bearer $env:DISPATCH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "X-GitHub-Api-Version" = "2022-11-28"
-          }
-          $body = @{
-            ref = "main"
-            inputs = @{
-              force_refresh = "false"
-              keep_alive = "true"
-            }
-          } | ConvertTo-Json -Depth 5
-
-          $dispatchUri = "https://api.github.com/repos/$env:REPOSITORY/actions/workflows/$env:WORKFLOW_FILE/dispatches"
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            try {
-              Invoke-RestMethod `
-                -Method Post `
-                -Uri $dispatchUri `
-                -Headers $headers `
-                -Body $body `
-                -ContentType "application/json"
-
-              Write-Host "Next updater run dispatched."
-              exit 0
-            } catch {
-              Write-Warning "Could not dispatch next updater run on attempt $attempt`: $($_.Exception.Message)"
-              if ($attempt -eq 3) {
-                throw
-              }
-              Start-Sleep -Seconds (30 * $attempt)
-            }
-          }
