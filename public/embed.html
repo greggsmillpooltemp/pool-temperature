@@ -73,7 +73,7 @@
         if (!response.ok) throw new Error("Temperature file unavailable");
         const data = await response.json();
         tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
-        const date = data.lastReadingAt || data.updatedAt;
+        const date = data.updatedAt || data.lastReadingAt;
         metaEl.textContent = date ? "Updated " + new Date(date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
       } catch (error) {
         tempEl.textContent = "--.-°F";

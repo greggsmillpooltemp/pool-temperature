@@ -71,7 +71,7 @@
         const data = await response.json();
         tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
         statusEl.textContent = data.online === false ? "Last gateway reading" : "Live reading";
-        const date = data.lastReadingAt || data.updatedAt;
+        const date = data.updatedAt || data.lastReadingAt;
         updatedEl.textContent = date ? "Updated " + new Date(date).toLocaleString() : "";
       } catch (error) {
         tempEl.textContent = "--.-°F";

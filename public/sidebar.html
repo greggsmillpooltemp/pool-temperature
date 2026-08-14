@@ -115,7 +115,7 @@
 
         tempEl.textContent = Number(data.tempF).toFixed(1) + "°F";
 
-        const date = data.lastReadingAt || data.updatedAt;
+        const date = data.updatedAt || data.lastReadingAt;
         metaEl.classList.remove("stale");
 
         if (date) {
